@@ -11,7 +11,7 @@ exec 2>&1
 
 function install(){
     ## Array of installables
-    declare -a install_options=("cmake" "root" "geant4" "chroma" "cry" "tensorflow" "torch" "ratpac" "nlopt" "hdf5")
+    declare -a install_options=("cmake" "root" "geant4" "chroma" "cry" "tensorflow" "torch" "ratpac" "nlopt" "hdf5" "eigen" "osqp-eigen")
     declare -A install_selection
     for element in "${install_options[@]}"
     do
@@ -167,6 +167,16 @@ function install(){
     if [ "${install_selection[hdf5]}" = true ]
     then
       install_hdf5
+    fi
+
+    if [ "${install_selection[eigen]}" = true ]
+    then
+        install_eigen
+    fi
+
+    if [ "${install_selection[osqp-eigen]}" = true ]
+    then
+        install_osqp_eigen
     fi
 }
 
@@ -510,6 +520,53 @@ function install_nlopt()
     cmake --build build --target install
     popd
     rm -rf nlopt
+}
+
+function install_eigen()
+{
+    git clone --depth 1 -b 3.4.0 https://gitlab.com/libeigen/eigen.git eigen_src
+    mkdir -p eigen_build
+    pushd eigen_build
+    cmake -DCMAKE_INSTALL_PREFIX=${options[prefix]} ../eigen_src
+    make -j${options[procuse]} install
+    popd
+    if [ "${options[cleanup]}" = true ]
+    then
+        rm -rf eigen_src eigen_build
+    fi
+}
+
+function install_osqp_eigen()
+{
+    # OSQP-eigen requires Eigen to be installed first
+    if [ ! -f "${options[prefix]}/include/eigen3/Eigen/Dense" ]; then
+        echo "Warning: Eigen not found, installing Eigen first..."
+        install_eigen
+    fi
+    
+    # First install OSQP
+    git clone --depth 1 -b v1.0.0 --recurse-submodules https://github.com/osqp/osqp.git osqp_src
+    mkdir -p osqp_build
+    pushd osqp_build
+    cmake -DCMAKE_INSTALL_PREFIX=${options[prefix]} ../osqp_src
+    cmake --build . --target install -j${options[procuse]}
+    popd
+    
+    # Then install OSQP-Eigen
+    git clone --depth 1 -b v0.10.1 https://github.com/robotology/osqp-eigen.git osqp-eigen_src
+    mkdir -p osqp-eigen_build
+    pushd osqp-eigen_build
+    cmake -DCMAKE_INSTALL_PREFIX=${options[prefix]} \
+          -DEigen3_DIR=${options[prefix]}/share/eigen3/cmake \
+          -Dosqp_DIR=${options[prefix]}/lib/cmake/osqp \
+          ../osqp-eigen_src
+    cmake --build . --target install -j${options[procuse]}
+    popd
+    
+    if [ "${options[cleanup]}" = true ]
+    then
+        rm -rf osqp_src osqp_build osqp-eigen_src osqp-eigen_build
+    fi
 }
 
 

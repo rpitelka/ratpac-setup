@@ -29,6 +29,8 @@ RUN ./setup.sh --only cry
 RUN ./setup.sh --only tensorflow
 RUN ./setup.sh --only nlopt
 RUN ./setup.sh --only hdf5 -j$(nproc)
+RUN ./setup.sh --only eigen -j$(nproc)
+RUN ./setup.sh --only osqp-eigen -j$(nproc)
 ENV PATH=/ratpac-setup/local/bin:$PATH
 RUN sed -i '1s/^/#!\/bin\/bash\n/' /ratpac-setup/env.sh
 RUN printf '\nexec "$@"\n' >> /ratpac-setup/env.sh
